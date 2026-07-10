@@ -3,6 +3,8 @@ node_modules/
 data/raw/*.txt
 data/processed/*
 data/reports/*
+data/generated/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/reports/.gitkeep
+!data/generated/.gitkeep

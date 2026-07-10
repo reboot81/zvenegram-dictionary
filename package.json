@@ -6,6 +6,7 @@
   "scripts": {
     "download": "node src/download.mjs",
     "curate": "node src/curate.mjs",
+    "generate": "node src/generate.mjs",
     "build": "npm run curate",
     "check": "node src/check.mjs",
     "test": "node --test"
