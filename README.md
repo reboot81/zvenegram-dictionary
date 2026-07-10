@@ -24,4 +24,4 @@ The pipeline normalizes words to lowercase NFC, requires 4–12 letters, accepts
 - `review` contains structurally valid but uncommon, missing-frequency or pattern-flagged words.
 - `rejected` contains structural failures and manual exclusions.
 
-`data/processed/scored-words.json` preserves score, length and frequency metadata for the future puzzle generator. Generated files remain untracked until all source licensing is resolved.
+`data/processed/scored-words.json` preserves score, length and frequency metadata for the future puzzle generator. The base word list is public domain. Frequency-enriched output also uses CC BY-SA 4.0 data and must retain the attribution and applicable share-alike terms documented in `SOURCES.md`.
