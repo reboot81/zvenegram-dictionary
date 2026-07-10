@@ -30,3 +30,5 @@ The pipeline normalizes words to lowercase NFC, requires 4–12 letters, accepts
 ## Puzzle generation
 
 The generator builds a connected 4×4 board with exactly 16 used cells. Each word step uses an immediately adjacent horizontal, vertical or diagonal cell. It rejects repeated cells, nested solution words and invalid board paths. Output JSON is compatible with Zvenegram and may be copied into `zvenegram/src/data/generated-puzzles.json`.
+
+The generator retries up to 5,000 candidate layouts per requested puzzle. This prevents a single unlucky random sequence from aborting a larger batch while keeping output deterministic for a chosen seed.
