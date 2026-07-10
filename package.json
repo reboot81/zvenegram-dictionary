@@ -1,0 +1,13 @@
+{
+  "name": "zvenegram-dictionary",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "download": "node src/download.mjs",
+    "curate": "node src/curate.mjs",
+    "build": "npm run curate",
+    "check": "node src/check.mjs"
+  },
+  "engines": { "node": ">=20" }
+}

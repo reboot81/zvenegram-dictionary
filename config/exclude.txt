@@ -1,0 +1,1 @@
+# One lowercase word per line. Add words that must never enter a puzzle.
