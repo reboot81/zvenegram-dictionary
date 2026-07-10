@@ -1,8 +1,7 @@
 const GRID = 4
 const CELLS = 16
-const MIN_WORDS = 7
-const TARGET_WORDS = 12
-const MAX_WORDS = 15
+const MIN_WORDS = 9
+const MAX_WORDS = 12
 const ids = Array.from({ length: CELLS }, (_, index) => `c${index}`)
 
 function seedNumber(value) {
@@ -71,6 +70,47 @@ function countPaths(word, board, limit = 2) {
   return count
 }
 
+export function createTrie(words) {
+  const root = { children: new Map(), word: null }
+  for (const { word } of words) {
+    let node = root
+    for (const letter of word) {
+      if (!node.children.has(letter)) node.children.set(letter, { children: new Map(), word: null })
+      node = node.children.get(letter)
+    }
+    node.word = word
+  }
+  return root
+}
+
+export function findPlayableWordPaths(puzzle, trie) {
+  const letters = new Map(puzzle.nodes.map(({ id, letter }) => [id, letter.toLocaleLowerCase('sv-SE')]))
+  const connections = new Map(puzzle.nodes.map(({ id }) => [id, []]))
+  const edges = puzzle.edges ?? puzzle.words.flatMap(({ path }) => path.slice(1).map((id, index) => [path[index], id]))
+  for (const [from, to] of edges) {
+    connections.get(from).push(to)
+    connections.get(to).push(from)
+  }
+  const found = []
+  const seen = new Set()
+  const visit = (id, node, path) => {
+    const next = node.children.get(letters.get(id))
+    if (!next) return
+    if (next.word) {
+      const key = `${next.word}|${path.join('|')}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        found.push({ word: next.word, path: [...path] })
+      }
+    }
+    for (const neighbor of connections.get(id)) {
+      if (!path.includes(neighbor)) visit(neighbor, next, [...path, neighbor])
+    }
+  }
+  for (const { id } of puzzle.nodes) visit(id, trie, [id])
+  return found
+}
+
 function placements(word, board, random, requireOverlap, maximumNew, allowNoNew = false, limit = 12) {
   const result = []
   const letters = [...word]
@@ -112,7 +152,8 @@ function generateOne(candidates, random) {
   let board = apply(empty, starter.word, first.path)
   const selected = [{ ...starter, path: first.path }]
 
-  for (let step = 0; step < 48 && selected.length < MAX_WORDS; step += 1) {
+  const targetWords = MIN_WORDS + Math.floor(random() * (MAX_WORDS - MIN_WORDS + 1))
+  for (let step = 0; step < 48 && selected.length < targetWords; step += 1) {
     const emptyCount = board.filter((value) => value === null).length
     const options = []
     for (const candidate of shuffle(candidates, random).slice(0, 3000)) {
@@ -133,7 +174,7 @@ function generateOne(candidates, random) {
   return board.includes(null) || selected.length < MIN_WORDS ? null : { board, selected }
 }
 
-function puzzleFrom(result, index, seed) {
+function puzzleFrom(result, index, seed, wordTrie) {
   const edges = new Map()
   const words = result.selected.map(({ word, path }) => {
     path.slice(1).forEach((cell, pathIndex) => {
@@ -143,7 +184,7 @@ function puzzleFrom(result, index, seed) {
     return { word: word.toLocaleUpperCase('sv-SE'), path: path.map((cell) => ids[cell]) }
   })
   const averageLength = words.reduce((sum, word) => sum + [...word.word].length, 0) / words.length
-  return {
+  const puzzle = {
     id: `generated-${seed}-${String(index + 1).padStart(3, '0')}`,
     title: `Ordfläta ${index + 1}`,
     difficulty: averageLength >= 7 ? 'Svår' : averageLength >= 5.5 ? 'Medel' : 'Lätt',
@@ -152,6 +193,11 @@ function puzzleFrom(result, index, seed) {
     edges: [...edges.values()],
     words,
   }
+  const intendedWords = new Set(words.map(({ word }) => word.toLocaleLowerCase('sv-SE')))
+  const bonusWords = findPlayableWordPaths(puzzle, wordTrie)
+    .filter(({ word }) => !intendedWords.has(word))
+    .map(({ word, path }) => ({ word: word.toLocaleUpperCase('sv-SE'), path }))
+  return { ...puzzle, bonusWords }
 }
 
 export function validatePuzzle(puzzle) {
@@ -178,25 +224,30 @@ export function validatePuzzle(puzzle) {
 
 export function generatePuzzles(scoredWords, { count = 10, seed = 'zvenegram-v1', attempts = 5000 } = {}) {
   const candidates = scoredWords.filter(({ word, score }) => word.length >= 4 && word.length <= 12 && score >= 38).sort((a, b) => b.score - a.score)
+  const wordTrie = createTrie(scoredWords.filter(({ word }) => word.length >= 4 && word.length <= 12))
   const random = createRandom(seed)
   const puzzles = []
   for (let index = 0; index < count; index += 1) {
-    let result = null
-    for (let attempt = 0; attempt < attempts && !result; attempt += 1) {
+    let bestPuzzle = null
+    const qualityAttempts = Math.min(attempts, 2)
+    let validCandidates = 0
+    for (let attempt = 0; attempt < attempts && validCandidates < qualityAttempts; attempt += 1) {
       const candidate = generateOne(candidates, random)
       if (!candidate) continue
       try {
-        validatePuzzle(puzzleFrom(candidate, index, seed))
-        result = candidate
+        const puzzle = puzzleFrom(candidate, index, seed, wordTrie)
+        validatePuzzle(puzzle)
+        validCandidates += 1
+        const bonusCount = new Set(puzzle.bonusWords.map(({ word }) => word)).size
+        if (!bestPuzzle || bonusCount < bestPuzzle.bonusCount) bestPuzzle = { puzzle, bonusCount }
+        if (bonusCount <= 10) break
       } catch {
         continue
       }
     }
-    if (!result) throw new Error(`Unable to create puzzle ${index + 1} after ${attempts} layout attempts`)
-    const puzzle = puzzleFrom(result, index, seed)
-    validatePuzzle(puzzle)
-    if (puzzle.words.length < MIN_WORDS) throw new Error(`Puzzle ${index + 1} has too few words`)
-    puzzles.push(puzzle)
+    if (!bestPuzzle) throw new Error(`Unable to create puzzle ${index + 1} after ${attempts} layout attempts`)
+    if (bestPuzzle.puzzle.words.length < MIN_WORDS) throw new Error(`Puzzle ${index + 1} has too few words`)
+    puzzles.push(bestPuzzle.puzzle)
   }
   return puzzles
 }
