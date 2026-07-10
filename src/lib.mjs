@@ -11,6 +11,19 @@ export function normalizeWord(value) {
 
 export function structuralReason(word) {
   if ([...word].length < 4) return 'shorter-than-4'
+  if ([...word].length > 12) return 'longer-than-12'
   if (!/^[a-zåäö]+$/u.test(word)) return 'unsupported-characters'
   return null
+}
+
+export function parseFrequencyList(text) {
+  const frequencies = new Map()
+  text.split(/\r?\n/u).forEach((line, index) => {
+    const separator = line.lastIndexOf(' ')
+    if (separator < 1) return
+    const word = normalizeWord(line.slice(0, separator))
+    const count = Number(line.slice(separator + 1))
+    if (/^[a-zåäö]+$/u.test(word) && Number.isFinite(count)) frequencies.set(word, { count, rank: index + 1 })
+  })
+  return frequencies
 }

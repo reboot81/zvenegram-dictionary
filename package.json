@@ -7,7 +7,8 @@
     "download": "node src/download.mjs",
     "curate": "node src/curate.mjs",
     "build": "npm run curate",
-    "check": "node src/check.mjs"
+    "check": "node src/check.mjs",
+    "test": "node --test"
   },
   "engines": { "node": ">=20" }
 }
